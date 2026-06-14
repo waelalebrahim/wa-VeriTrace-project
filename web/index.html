@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>VeriTrace — source-grounded verification for AI answers</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #eceef1;
+    --paper: #ffffff;
+    --ink: #14181f;
+    --ink-soft: #555d6b;
+    --ink-faint: #8b929e;
+    --line: #dcdfe4;
+    --line-soft: #e8eaee;
+    --brand: #0e6b7d;
+    --brand-deep: #093f4a;
+    --high: #16734a;
+    --high-bg: #e6f2ec;
+    --med: #946012;
+    --med-bg: #f6eed9;
+    --low: #6b7280;
+    --low-bg: #eceef1;
+    --radius: 4px;
+    --shadow: 0 1px 2px rgba(20,24,31,.05), 0 8px 24px rgba(20,24,31,.06);
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body { margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", system-ui, sans-serif;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    background-image:
+      linear-gradient(var(--line-soft) 1px, transparent 1px);
+    background-size: 100% 28px;
+    background-position: 0 -1px;
+  }
+
+  .wrap { max-width: 860px; margin: 0 auto; padding: 48px 24px 80px; }
+
+  /* ---- header ---- */
+  .masthead { border-bottom: 2px solid var(--ink); padding-bottom: 20px; margin-bottom: 32px; }
+  .eyebrow {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px; letter-spacing: .16em; text-transform: uppercase;
+    color: var(--brand); margin: 0 0 10px;
+  }
+  .wordmark {
+    font-family: "Fraunces", serif;
+    font-weight: 500;
+    font-size: clamp(40px, 8vw, 68px);
+    line-height: .96; letter-spacing: -.02em; margin: 0;
+  }
+  .wordmark .trace { color: var(--brand); font-style: italic; }
+  .thesis {
+    font-family: "Fraunces", serif; font-weight: 400;
+    font-size: clamp(17px, 2.6vw, 21px); color: var(--ink-soft);
+    max-width: 46ch; margin: 14px 0 0;
+  }
+  .runs-note {
+    font-family: "IBM Plex Mono", monospace; font-size: 11px;
+    color: var(--ink-faint); margin-top: 14px; letter-spacing: .02em;
+  }
+  .runs-note span { color: var(--high); }
+
+  /* ---- panels ---- */
+  .panel {
+    background: var(--paper); border: 1px solid var(--line);
+    border-radius: var(--radius); box-shadow: var(--shadow);
+    padding: 18px 18px 16px; margin-bottom: 16px;
+  }
+  .panel-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 10px; }
+  .panel-label {
+    font-family: "IBM Plex Mono", monospace; font-size: 11px;
+    letter-spacing: .14em; text-transform: uppercase; color: var(--ink);
+    font-weight: 500;
+  }
+  .panel-hint { font-size: 12px; color: var(--ink-faint); }
+
+  textarea {
+    width: 100%; border: 1px solid var(--line); border-radius: var(--radius);
+    background: #fcfcfb; padding: 12px 14px; resize: vertical;
+    font-family: "IBM Plex Sans", sans-serif; font-size: 15px; color: var(--ink);
+    line-height: 1.6;
+  }
+  textarea:focus-visible { outline: 2px solid var(--brand); outline-offset: 1px; border-color: var(--brand); }
+  #sources { min-height: 96px; }
+  #answer { min-height: 120px; }
+
+  /* ---- controls ---- */
+  .controls { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; margin: 4px 0 28px; }
+  .btn {
+    font-family: "IBM Plex Sans", sans-serif; font-weight: 600; font-size: 15px;
+    background: var(--ink); color: #fff; border: none; border-radius: var(--radius);
+    padding: 12px 26px; cursor: pointer; letter-spacing: .01em;
+    transition: background .15s ease, transform .05s ease;
+  }
+  .btn:hover { background: var(--brand-deep); }
+  .btn:active { transform: translateY(1px); }
+  .btn:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+  .gate-toggle { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--ink-soft); cursor: pointer; user-select: none; }
+  .gate-toggle input { width: 16px; height: 16px; accent-color: var(--brand); cursor: pointer; }
+
+  /* ---- summary ---- */
+  .summary { display: none; align-items: stretch; gap: 0; margin-bottom: 20px; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); }
+  .summary.show { display: flex; }
+  .summary-cell { flex: 1; background: var(--paper); padding: 14px 16px; border-right: 1px solid var(--line-soft); }
+  .summary-cell:last-child { border-right: none; }
+  .summary-num { font-family: "Fraunces", serif; font-weight: 500; font-size: 30px; line-height: 1; }
+  .summary-tag { font-family: "IBM Plex Mono", monospace; font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-faint); margin-top: 6px; }
+  .summary-cell.t-high .summary-num { color: var(--high); }
+  .summary-cell.t-med .summary-num { color: var(--med); }
+  .summary-cell.t-low .summary-num { color: var(--low); }
+
+  .gate-banner { display: none; padding: 12px 16px; border-radius: var(--radius); font-size: 14px; margin-bottom: 20px; border: 1px solid; }
+  .gate-banner.show { display: block; }
+  .gate-banner.blocked { background: #fbeceb; border-color: #e3b4af; color: #8a352d; }
+  .gate-banner.passed { background: var(--high-bg); border-color: #b8d8c8; color: var(--high); }
+  .gate-banner b { font-weight: 600; }
+
+  /* ---- claim cards ---- */
+  .results { display: flex; flex-direction: column; gap: 12px; }
+  .claim {
+    background: var(--paper); border: 1px solid var(--line);
+    border-left: 3px solid var(--low); border-radius: var(--radius);
+    padding: 15px 16px 14px; box-shadow: var(--shadow);
+    opacity: 0; transform: translateY(6px); animation: rise .32s ease forwards;
+  }
+  .claim.t-high { border-left-color: var(--high); }
+  .claim.t-med { border-left-color: var(--med); }
+  .claim.t-low { border-left-color: var(--low); }
+  @keyframes rise { to { opacity: 1; transform: none; } }
+
+  .claim-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
+  .claim-text { font-family: "Fraunces", serif; font-size: 18px; line-height: 1.4; margin: 0; }
+  .chip {
+    flex: none; font-family: "IBM Plex Mono", monospace; font-size: 10px;
+    letter-spacing: .1em; text-transform: uppercase; font-weight: 500;
+    padding: 4px 9px; border-radius: 100px; white-space: nowrap; margin-top: 3px;
+  }
+  .chip.t-high { background: var(--high-bg); color: var(--high); }
+  .chip.t-med { background: var(--med-bg); color: var(--med); }
+  .chip.t-low { background: var(--low-bg); color: var(--low); }
+
+  /* the signature: the trace from claim to source */
+  .trace { margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--line); display: flex; gap: 10px; }
+  .trace-rail { flex: none; width: 14px; display: flex; flex-direction: column; align-items: center; padding-top: 3px; }
+  .trace-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--high); }
+  .trace-line { width: 2px; flex: 1; background: linear-gradient(var(--high), transparent); margin-top: 2px; }
+  .t-med .trace-dot { background: var(--med); }
+  .t-med .trace-line { background: linear-gradient(var(--med), transparent); }
+  .trace-body { flex: 1; min-width: 0; }
+  .trace-src-id { font-family: "IBM Plex Mono", monospace; font-size: 11px; color: var(--brand); letter-spacing: .02em; }
+  .trace-passage { font-size: 14px; color: var(--ink-soft); margin: 3px 0 6px; }
+  .trace-meta { font-family: "IBM Plex Mono", monospace; font-size: 10.5px; color: var(--ink-faint); display: flex; gap: 14px; flex-wrap: wrap; }
+
+  .no-trace { margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--line); display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--low); }
+  .no-trace .sever { font-family: "IBM Plex Mono", monospace; letter-spacing: -.1em; }
+
+  /* ---- footer ---- */
+  .foot { margin-top: 48px; padding-top: 20px; border-top: 1px solid var(--line); font-size: 13px; color: var(--ink-faint); }
+  .foot p { margin: 0 0 6px; }
+  .foot .mono { font-family: "IBM Plex Mono", monospace; font-size: 11px; }
+  .foot a { color: var(--brand); text-decoration: none; border-bottom: 1px solid var(--line); }
+  .foot a:hover { border-color: var(--brand); }
+
+  @media (max-width: 560px) {
+    .summary-num { font-size: 24px; }
+    .claim-text { font-size: 16px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .claim { animation: none; opacity: 1; transform: none; }
+    .btn { transition: none; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="masthead">
+    <p class="eyebrow">Open source · runs in your browser</p>
+    <h1 class="wordmark">Veri<span class="trace">Trace</span></h1>
+    <p class="thesis">It only lets an answer through if its claims can be traced back to a source you trust. Otherwise it says so.</p>
+    <p class="runs-note">No server. No data leaves this page. <span>&#9679;</span> live demo of the V1 engine</p>
+  </header>
+
+  <section class="panel">
+    <div class="panel-head">
+      <span class="panel-label">Trusted sources</span>
+      <span class="panel-hint">one per line — the only things an answer may be grounded in</span>
+    </div>
+    <textarea id="sources" spellcheck="false">The Eiffel Tower is in Paris and was completed in 1889.
+Honey never spoils because of its very low moisture and high acidity.</textarea>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head">
+      <span class="panel-label">Answer to check</span>
+      <span class="panel-hint">paste what an AI produced</span>
+    </div>
+    <textarea id="answer" spellcheck="false">The Eiffel Tower is in Paris. Honey never spoils because of its low moisture. The Eiffel Tower was secretly used to launch rockets to the moon. Dragons quietly run the lost city of Atlantis.</textarea>
+  </section>
+
+  <div class="controls">
+    <button class="btn" id="verify">Verify</button>
+    <label class="gate-toggle">
+      <input type="checkbox" id="gate" />
+      Gate mode — block the answer if anything is unprovable
+    </label>
+  </div>
+
+  <div class="gate-banner" id="gateBanner"></div>
+
+  <div class="summary" id="summary">
+    <div class="summary-cell t-high"><div class="summary-num" id="nHigh">0</div><div class="summary-tag">High · cited</div></div>
+    <div class="summary-cell t-med"><div class="summary-num" id="nMed">0</div><div class="summary-tag">Medium · verify</div></div>
+    <div class="summary-cell t-low"><div class="summary-num" id="nLow">0</div><div class="summary-tag">Low · unprovable</div></div>
+  </div>
+
+  <div class="results" id="results"></div>
+
+  <footer class="foot">
+    <p><span class="mono">VeriTrace</span> — MIT licensed · by Wael Alebrahim</p>
+    <p>This page runs the V1 <b>lexical</b> engine. It catches outright fabrication, and refuses to certify a claim that only reuses a real subject (you'll see those land at Medium, not Low). The semantic upgrade closes that gap.</p>
+  </footer>
+
+</div>
+
+<script>
+"use strict";
+
+// ---- a faithful port of the VeriTrace lexical engine (Python -> JS) ----
+
+const STOPWORDS = new Set(["the","a","an","and","or","but","is","are","was","were","be","been","being","to","of","in","on","at","for","with","as","by","that","this","these","those","it","its","from","into","about","i","you","he","she","we","they","them","his","her","their","have","has","had","do","does","did","will","would","can","could","not","no","than","then","so","if","which","who","what","there"]);
+
+const HIGH_THRESHOLD = 0.55;
+const MED_THRESHOLD = 0.18;
+const CONFLICT_MARGIN = 0.05;
+const W_COSINE = 0.3, W_COVERAGE = 0.7;
+
+function tokens(text) {
+  const out = [];
+  const m = text.toLowerCase().match(/[a-z0-9]+/g) || [];
+  for (const t of m) { if (t.length >= 2 && !STOPWORDS.has(t)) out.push(t); }
+  return out;
+}
+
+function splitSentences(text) {
+  return text.trim().split(/(?<=[.!?])\s+(?=[A-Z0-9"'(])/).map(s => s.trim()).filter(Boolean);
+}
+
+function splitClaims(text, minWords = 3) {
+  const out = [];
+  for (const s of splitSentences(text)) {
+    if (!/[a-z]/i.test(s)) continue;
+    if (s.split(/\s+/).length < minWords) continue;
+    if (s.endsWith("?")) continue;
+    out.push(s);
+  }
+  return out;
+}
+
+function vectorize(toks, idf) {
+  if (!toks.length) return {};
+  const tf = {};
+  for (const t of toks) tf[t] = (tf[t] || 0) + 1;
+  const vec = {};
+  for (const t in tf) vec[t] = (tf[t] / toks.length) * (idf[t] || 0);
+  let norm = 0; for (const t in vec) norm += vec[t] * vec[t];
+  norm = Math.sqrt(norm);
+  if (norm === 0) return {};
+  for (const t in vec) vec[t] /= norm;
+  return vec;
+}
+
+async function sha256(text) {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+async function verify(sourceLines, answer) {
+  // build passages (sentence-level) from each source line
+  const docs = [];
+  sourceLines.map(l => l.trim()).filter(Boolean).forEach((line, i) => {
+    docs.push({ id: "doc-" + (i + 1), text: line });
+  });
+  const passages = [];
+  for (const d of docs) {
+    for (const s of splitSentences(d.text)) passages.push({ text: s, doc: d });
+  }
+  // precompute hashes for provenance display
+  for (const d of docs) d.hash = await sha256(d.text);
+
+  const claims = splitClaims(answer);
+
+  if (!passages.length) {
+    return claims.map(c => ({ claim: c, tier: "low", score: 0, citation: null }));
+  }
+
+  // idf over passages
+  const N = passages.length;
+  const df = {};
+  const passTokens = passages.map(p => tokens(p.text));
+  passTokens.forEach(toks => { for (const t of new Set(toks)) df[t] = (df[t] || 0) + 1; });
+  const idf = {};
+  for (const t in df) idf[t] = Math.log((N + 1) / (df[t] + 1)) + 1.0;
+  const passVecs = passTokens.map(toks => vectorize(toks, idf));
+  const passSets = passTokens.map(toks => new Set(toks));
+
+  function coverage(claimToks, passSet) {
+    if (!claimToks.length) return 0;
+    const uniq = new Set(claimToks);
+    let total = 0, hit = 0;
+    for (const t of uniq) { const w = idf[t] || 1.0; total += w; if (passSet.has(t)) hit += w; }
+    return total ? hit / total : 0;
+  }
+
+  const results = [];
+  for (const claim of claims) {
+    const cToks = tokens(claim);
+    const q = vectorize(cToks, idf);
+    let ranked = [];
+    if (!Object.keys(q).length) {
+      ranked = passages.map((_, i) => [i, 0]);
+    } else {
+      ranked = passVecs.map((vec, i) => {
+        let cos = 0; for (const t in q) cos += q[t] * (vec[t] || 0);
+        const cov = coverage(cToks, passSets[i]);
+        return [i, W_COSINE * cos + W_COVERAGE * cov];
+      });
+    }
+    ranked.sort((a, b) => b[1] - a[1]);
+    const [bestIdx, bestScore] = ranked[0];
+
+    // conflict resolution: among near-ties, prefer newest source (none dated here -> first wins)
+    const near = ranked.filter(([i, sc]) => bestScore - sc <= CONFLICT_MARGIN && sc > 0).map(([i]) => passages[i]);
+    const chosen = near.length ? near[0] : passages[bestIdx];
+
+    let tier = "low";
+    if (bestScore >= HIGH_THRESHOLD) tier = "high";
+    else if (bestScore >= MED_THRESHOLD) tier = "medium";
+
+    let citation = null;
+    if (tier === "high" || tier === "medium") {
+      citation = { docId: chosen.doc.id, passage: chosen.text, score: bestScore, hash: chosen.doc.hash };
+    }
+    results.push({ claim, tier, score: bestScore, citation });
+  }
+  return results;
+}
+
+// ---- rendering ----
+
+const TIER_CLASS = { high: "t-high", medium: "t-med", low: "t-low" };
+const TIER_LABEL = { high: "High", medium: "Medium", low: "Low" };
+
+function escapeHtml(s) { return s.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+
+function render(results, gateOn) {
+  const counts = { high: 0, medium: 0, low: 0 };
+  results.forEach(r => counts[r.tier]++);
+
+  document.getElementById("nHigh").textContent = counts.high;
+  document.getElementById("nMed").textContent = counts.medium;
+  document.getElementById("nLow").textContent = counts.low;
+  document.getElementById("summary").classList.add("show");
+
+  const banner = document.getElementById("gateBanner");
+  banner.className = "gate-banner";
+  if (gateOn) {
+    const blocked = results.filter(r => r.tier === "low");
+    if (blocked.length) {
+      banner.classList.add("show", "blocked");
+      banner.innerHTML = "<b>Blocked.</b> " + blocked.length + " claim(s) could not be traced to any source — the answer would be stopped before reaching a user.";
+    } else {
+      banner.classList.add("show", "passed");
+      banner.innerHTML = "<b>Passed.</b> Every claim is grounded — the answer is safe to show.";
+    }
+  }
+
+  const wrap = document.getElementById("results");
+  wrap.innerHTML = "";
+  results.forEach((r, i) => {
+    const card = document.createElement("div");
+    card.className = "claim " + TIER_CLASS[r.tier];
+    card.style.animationDelay = (i * 0.05) + "s";
+
+    let inner = '<div class="claim-top">' +
+      '<p class="claim-text">' + escapeHtml(r.claim) + '</p>' +
+      '<span class="chip ' + TIER_CLASS[r.tier] + '">' + TIER_LABEL[r.tier] + ' · ' + r.score.toFixed(2) + '</span>' +
+      '</div>';
+
+    if (r.citation) {
+      inner += '<div class="trace">' +
+        '<div class="trace-rail"><span class="trace-dot"></span><span class="trace-line"></span></div>' +
+        '<div class="trace-body">' +
+          '<div class="trace-src-id">traced &rarr; ' + r.citation.docId + '</div>' +
+          '<div class="trace-passage">&ldquo;' + escapeHtml(r.citation.passage) + '&rdquo;</div>' +
+          '<div class="trace-meta"><span>match ' + r.citation.score.toFixed(3) + '</span><span>sha256 ' + r.citation.hash.slice(0, 12) + '&hellip;</span></div>' +
+        '</div></div>';
+    } else {
+      inner += '<div class="no-trace"><span class="sever">&times;&mdash;&mdash;</span> no source found · the honest answer is &ldquo;I don\u2019t know&rdquo;</div>';
+    }
+    card.innerHTML = inner;
+    wrap.appendChild(card);
+  });
+}
+
+document.getElementById("verify").addEventListener("click", async () => {
+  const sources = document.getElementById("sources").value.split("\n");
+  const answer = document.getElementById("answer").value;
+  const gateOn = document.getElementById("gate").checked;
+  const btn = document.getElementById("verify");
+  btn.disabled = true; btn.textContent = "Verifying\u2026";
+  try {
+    const results = await verify(sources, answer);
+    render(results, gateOn);
+  } finally {
+    btn.disabled = false; btn.textContent = "Verify";
+  }
+});
+
+// run once on load so the demo is alive immediately
+window.addEventListener("DOMContentLoaded", () => document.getElementById("verify").click());
+</script>
+</body>
+</html>
