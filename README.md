@@ -4,7 +4,7 @@
 
 It's the enforcement layer for the principle behind [The I Don't Know Project](https://theidkproject.ai): an AI should only assert what it can ground — and say "I don't know" otherwise.
 
-🔗 **Live demo:** _add your Cloudflare Pages URL here once deployed_ — runs entirely in the browser, no server.
+🔗 **Live demo:** https://wa-veritrace-project.pages.dev/ runs entirely in the browser, no server.
 
 - **Zero dependencies** in the core. Pure Python standard library — no model downloads, no API keys.
 - **Tiered confidence**: every claim is graded `HIGH` (cited), `MEDIUM` (verify this), or `LOW` (unprovable).
